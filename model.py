@@ -1,6 +1,18 @@
-import tensorflow as tf
-from tensorflow.contrib import rnn
-from tensorflow.contrib import legacy_seq2seq
+
+# Disabling tf 2.0 in favour of tf 1.0
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
+
+
+#from tensorflow.contrib import rnn
+import tensorflow.keras.layers as rnn
+
+#from tensorflow.contrib import legacy_seq2seq
+#from tensorflow import legacy_seq2seq
+
+import tensorflow_addons 
 
 import numpy as np
 
@@ -14,13 +26,14 @@ class Model():
 
         # choose different rnn cell 
         if args.model == 'rnn':
-            cell_fn = rnn.RNNCell
+            cell_fn = RNN.RNNCell
         elif args.model == 'gru':
-            cell_fn = rnn.GRUCell
+            cell_fn = RNN.GRUCell
         elif args.model == 'lstm':
-            cell_fn = rnn.LSTMCell
+            #cell_fn = rnn.LSTMCell
+            cell_fn = tf.compat.v1.nn.rnn_cell.LSTMCell
         elif args.model == 'nas':
-            cell_fn = rnn.NASCell
+            cell_fn = RNN.NASCell
         else:
             raise Exception("model type not supported: {}".format(args.model))
 
@@ -32,8 +45,9 @@ class Model():
                 cell = rnn.DropoutWrapper(cell,
                                           input_keep_prob=args.input_keep_prob,
                                           output_keep_prob=args.output_keep_prob)
+                #cell = rnn.Dropout(cell, input_keep_prob=args.input_keep_prob, output_keep_prob=args.output_keep_prob)
             cells.append(cell)
-        self.cell = cell = rnn.MultiRNNCell(cells, state_is_tuple=True)
+        self.cell = cell = tf.compat.v1.nn.rnn_cell.MultiRNNCell(cells, state_is_tuple=True)
 
         # input/target data (int32 since input is char-level)
         self.input_data = tf.placeholder(
@@ -67,6 +81,7 @@ class Model():
             return tf.nn.embedding_lookup(embedding, prev_symbol)
 
         # rnn_decoder to generate the ouputs and final state. When we are not training the model, we use the loop function.
+        # BasicDecoder takes cell, sampler, and output_layer(optional) as arguments.
         outputs, last_state = legacy_seq2seq.rnn_decoder(inputs, self.initial_state, cell, loop_function=loop if not training else None, scope='rnnlm')
         output = tf.reshape(tf.concat(outputs, 1), [-1, args.rnn_size])
 
